@@ -1,6 +1,8 @@
 path     = require 'path'
 loopback = require "#{path.join process.cwd(), 'node_modules', 'loopback'}"
 
+hasAccessToken = (req)->
+  req.hasOwnProperty('accessToken') and req.accessToken?
 module.exports.init = (app, options, cB)->
   # enable authentication
   app.enableAuth()
@@ -24,7 +26,7 @@ module.exports.init = (app, options, cB)->
       root: true
 
   app.models.User.logout = (req, res, cB) ->
-    return cB 'accessToken not defined' unless req.hasOwnProperty 'accessToken' and req.accessToken?
+    return cB 'accessToken not defined' unless hasAccessToken req
     app.models.AccessToken.destroyById req.accessToken.id, ->
       delete req.signedCookies.authorization
       cB status: 204 
@@ -50,7 +52,7 @@ module.exports.init = (app, options, cB)->
       type: 'null'
       root: true
   app.post '/reset-password', (req, res, next) ->
-    return res.sendStatus 401 unless req.hasOwnProperty 'accessToken' and req.accessToken?
+    return res.sendStatus 401 unless hasAccessToken req
     #verify passwords match
     unless (req.body.password? and req.body.confirmation?) and (req.body.password.match new RegExp "^#{req.body.confirmation}+$")?
       return res.sendStatus 400, new Error 'Passwords do not match'
@@ -65,7 +67,7 @@ module.exports.init = (app, options, cB)->
           redirectToLinkText: 'Log in'
   app.use loopback.token model: app.models.accessToken
   app.use (req, res, next) ->
-    res.clearCookie 'authorization' unless req.hasOwnProperty 'accessToken' and req.accessToken? and req.signedCookies
+    res.clearCookie 'authorization' unless hasAccessToken(req) and req.signedCookies
     next()
 
   handleAuth = (context, result, next) ->
