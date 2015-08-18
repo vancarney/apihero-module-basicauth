@@ -1,7 +1,7 @@
 path     = require 'path'
 loopback = require "#{path.join process.cwd(), 'node_modules', 'loopback'}"
 
-module.exports.init = (app, cB)->
+module.exports.init = (app, options, cB)->
   # enable authentication
   app.enableAuth()
 
@@ -50,7 +50,7 @@ module.exports.init = (app, cB)->
       type: 'null'
       root: true
   app.post '/reset-password', (req, res, next) ->
-    return res.sendStatus 401 unless req.accessToken
+    return res.sendStatus 401 unless req.hasOwnProperty 'accessToken' and req.accessToken?
     #verify passwords match
     unless (req.body.password? and req.body.confirmation?) and (req.body.password.match new RegExp "^#{req.body.confirmation}+$")?
       return res.sendStatus 400, new Error 'Passwords do not match'
@@ -65,7 +65,7 @@ module.exports.init = (app, cB)->
           redirectToLinkText: 'Log in'
   app.use loopback.token model: app.models.accessToken
   app.use (req, res, next) ->
-    res.clearCookie 'authorization' unless req.accessToken? and req.signedCookies
+    res.clearCookie 'authorization' unless req.hasOwnProperty 'accessToken' and req.accessToken? and req.signedCookies
     next()
 
   handleAuth = (context, result, next) ->
