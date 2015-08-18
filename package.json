@@ -1,7 +1,7 @@
 {
   "author": "Van Carney <carney.van@gmail.com>",
-  "name": "apihero-module-stub",
-  "description": "Empty Repo for bootstraping new Module Projects",
+  "name": "apihero-module-basicauth",
+  "description": "Enables basic authentication for ApiHero Client with sessions and rest routes",
   "keywords": [
     "loopback",
     "API-Hero"
