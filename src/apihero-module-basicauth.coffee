@@ -9,7 +9,7 @@ module.exports.init = (app, options, cB)->
 
   app.models.User.restore = (token, cB) ->
     app.models.AccessToken.findOne { where: id: token }, (e, token) ->
-      console.log arguments
+      # console.log arguments
       cB.apply this, arguments
       
   app.models.User.remoteMethod 'restore',
@@ -69,21 +69,20 @@ module.exports.init = (app, options, cB)->
   app.use loopback.token model: app.models.accessToken
   app.use (req, res, next) ->
     unless hasAccessToken(req) and req.signedCookies
-      delete req.session.userId if req.session.hasOwnProperty 'userId'
       res.clearCookie 'authorization'
+    else
+      req.session.userId = req.accessToken.userId
     next()
-
   handleAuth = (context, result, next) ->
     if result != null and result.id != null
-      context.req.session.userId = result.userId
       context.res.cookie 'authorization', result.id,
         httpOnly: true
         signed: true
+      context.req.session.regenerate (err)=>
+        context.req.session.userId = result.userId
     next()
-
   app.models.User.afterRemote 'login', handleAuth
   app.models.User.afterRemote 'restore', handleAuth
   app.models.User.afterRemote 'logout', (context, result, next) ->
     context.res.clearCookie 'authorization'
-    
   cB()
