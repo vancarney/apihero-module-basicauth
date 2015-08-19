@@ -28,6 +28,7 @@ module.exports.init = (app, options, cB)->
   app.models.User.logout = (req, res, cB) ->
     return cB 'accessToken not defined' unless hasAccessToken req
     app.models.AccessToken.destroyById req.accessToken.id, ->
+      delete req.session.userId
       delete req.signedCookies.authorization
       cB status: 204 
 
@@ -67,11 +68,14 @@ module.exports.init = (app, options, cB)->
           redirectToLinkText: 'Log in'
   app.use loopback.token model: app.models.accessToken
   app.use (req, res, next) ->
-    res.clearCookie 'authorization' unless hasAccessToken(req) and req.signedCookies
+    unless hasAccessToken(req) and req.signedCookies
+      delete req.session.userId if req.session.hasOwnProperty 'userId'
+      res.clearCookie 'authorization'
     next()
 
   handleAuth = (context, result, next) ->
     if result != null and result.id != null
+      context.req.session.userId = result.userId
       context.res.cookie 'authorization', result.id,
         httpOnly: true
         signed: true
