@@ -6,12 +6,10 @@ hasAccessToken = (req)->
 module.exports.init = (app, options, cB)->
   # enable authentication
   app.enableAuth()
-
   app.models.User.restore = (token, cB) ->
     app.models.AccessToken.findOne { where: id: token }, (e, token) ->
       # console.log arguments
       cB.apply this, arguments
-      
   app.models.User.remoteMethod 'restore',
     accepts: [ {
       arg: 'token'
@@ -31,7 +29,6 @@ module.exports.init = (app, options, cB)->
       delete req.session.userId
       delete req.signedCookies.authorization
       cB status: 204 
-
   app.models.User.remoteMethod 'logout',
     accepts: [
       {
@@ -70,19 +67,30 @@ module.exports.init = (app, options, cB)->
   app.use (req, res, next) ->
     unless hasAccessToken(req) and req.signedCookies
       res.clearCookie 'authorization'
+      next()
     else
-      req.session.userId = req.accessToken.userId
-    next()
+      app.models.User.findById req.accessToken.userId, (e, user) ->
+        console.log e if e?
+        req.session.userId = req.accessToken.userId
+        req.user = user
+        console.log "set user attrs upon request"
+        console.log user
+        next()
   handleAuth = (context, result, next) ->
-    if result != null and result.id != null
+    unless result?.id?
       context.res.cookie 'authorization', result.id,
         httpOnly: true
         signed: true
-      context.req.session.regenerate (err)=>
-        context.req.session.userId = result.userId
-    next()
+      app.models.User.findById result.userId, (e, user) ->
+        context.req.session.regenerate (err)=>
+          context.req.session.userId = result.userId
+          context.req.user = user
+          next()
+    else
+      next()
   app.models.User.afterRemote 'login', handleAuth
   app.models.User.afterRemote 'restore', handleAuth
   app.models.User.afterRemote 'logout', (context, result, next) ->
+    delete context.req.user if context.req.hasOwnProperty 'user'
     context.res.clearCookie 'authorization'
   cB()
