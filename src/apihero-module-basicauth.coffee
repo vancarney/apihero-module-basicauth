@@ -6,6 +6,10 @@ hasAccessToken = (req)->
 module.exports.init = (app, options, cB)->
   # enable authentication
   app.enableAuth()
+  if (options and typeof options is 'function')
+    cB = arguments[1]
+    options = {}
+  authOptions = if options?.hasOwnProperty 'authOptions' then options.authOptions else {}
   app.models.User.restore = (token, cB) ->
     app.models.AccessToken.findOne { where: id: token }, (e, token) ->
       # console.log arguments
@@ -81,7 +85,7 @@ module.exports.init = (app, options, cB)->
       context.res.cookie 'authorization', result.id,
         httpOnly: true
         signed: true
-      app.models.User.findById result.userId, (e, user) ->
+      app.models.User.findById result.userId, authOptions, (e, user) ->
         context.req.session.regenerate (err)=>
           context.req.session.userId = result.userId
           context.req.user = user
