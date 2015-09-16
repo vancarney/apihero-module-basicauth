@@ -3,6 +3,7 @@ loopback = require "#{path.join process.cwd(), 'node_modules', 'loopback'}"
 
 hasAccessToken = (req)->
   req.hasOwnProperty('accessToken') and req.accessToken?
+  
 module.exports.init = (app, options, cB)->
   # enable authentication
   app.enableAuth()
@@ -11,7 +12,7 @@ module.exports.init = (app, options, cB)->
     options = {}
   authOptions = if options?.hasOwnProperty 'authOptions' then options.authOptions else {}
   app.models.User.restore = (token, cB) ->
-    app.models.AccessToken.findOne { where: id: token }, (e, token) ->
+    app.models.AccessToken.findOne { where: id: token }, (e, token) =>
       # console.log arguments
       cB.apply this, arguments
   app.models.User.remoteMethod 'restore',
@@ -29,7 +30,7 @@ module.exports.init = (app, options, cB)->
 
   app.models.User.logout = (req, res, cB) ->
     return cB 'accessToken not defined' unless hasAccessToken req
-    app.models.AccessToken.destroyById req.accessToken.id, ->
+    app.models.AccessToken.destroyById req.accessToken.id, =>
       delete req.session.userId
       delete req.signedCookies.authorization
       cB status: 204 
@@ -60,7 +61,7 @@ module.exports.init = (app, options, cB)->
       return res.sendStatus 400, new Error 'Passwords do not match'
     app.models.User.findById req.accessToken.userId, (e, user) ->
       return res.sendStatus 404 if e?
-      user.updateAttribute 'password', req.body.password, (e, user) ->
+      user.updateAttribute 'password', req.body.password, (e, user) =>
         return res.sendStatus 404 if e?
         res.json
           title: 'Password reset success'
@@ -73,21 +74,29 @@ module.exports.init = (app, options, cB)->
       res.clearCookie 'authorization'
       next()
     else
-      app.models.User.findById req.accessToken.userId, (e, user) ->
-        console.log e if e?
+      app.models.Account.findById req.accessToken.userId, authOptions, (e, user) =>
+        if e?
+          console.log e
+          return next()
         req.session.userId = req.accessToken.userId
+        req.session.user   = user
         req.user = user
-        console.log "set user attrs upon request"
-        console.log user
         next()
   handleAuth = (context, result, next) ->
-    unless result?.id?
+    unless context.req.session?.user?
       context.res.cookie 'authorization', result.id,
         httpOnly: true
         signed: true
-      app.models.User.findById result.userId, authOptions, (e, user) ->
-        context.req.session.regenerate (err)=>
-          context.req.session.userId = result.userId
+      app.models.Account.findById result.userId, authOptions, (e, user) =>
+        if e?
+          console.log e
+          return next()
+        context.req.session.regenerate (e)=>
+          if e?
+            console.log e
+            return next()
+          context.req.session.userId  = result.userId
+          context.req.session.user    = result.user
           context.req.user = user
           next()
     else
